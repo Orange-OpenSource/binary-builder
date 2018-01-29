@@ -87,8 +87,7 @@ aySUQcOvO67Z14d9E9ziX/E24KWl6xRymmy9VhzawgSmf//3yZVaD6C/8om3qMw=
         }, {
           "url"=>"http://apache.mirrors.tds.net/apr/apr-iconv-1.2.2.tar.gz",
           "sha256"=>"ce94c7722ede927ce1e5a368675ace17d96d60ff9b8918df216ee5c1298c6a5e"
-        },
-        {
+        }, {
           "url"=>"http://apache.mirrors.tds.net/apr/apr-util-1.6.1.tar.gz",
           "sha256"=>"b65e40713da57d004123b6319828be7f1273fbc6490e145874ee1177e112c459"
         }, {
