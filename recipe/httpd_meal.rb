@@ -93,7 +93,7 @@ end
 class HTTPdRecipe < BaseRecipe
   def computed_options
     [
-      "--prefix=#{path}",
+      '--prefix=/app/httpd',
       "--with-apr=#{@apr_path}",
       "--with-apr-util=#{@apr_util_path}",
       '--enable-mpms-shared=worker event',
