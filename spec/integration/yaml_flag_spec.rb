@@ -46,16 +46,16 @@ aySUQcOvO67Z14d9E9ziX/E24KWl6xRymmy9VhzawgSmf//3yZVaD6C/8om3qMw=
 
   context 'when a meal is specified' do
     before(:all) do
-      @output, = run_binary_builder('httpd', '2.4.12', '--md5=b8dc8367a57a8d548a9b4ce16d264a13')
-      @binary_tarball_location = Dir.glob(File.join(Dir.pwd, 'httpd-2.4.12-linux-x64*.tgz')).first
+      @output, = run_binary_builder('httpd', '2.4.29', '--md5=0c599404ef6b69eee95bcd9fcd094407')
+      @binary_tarball_location = Dir.glob(File.join(Dir.pwd, 'httpd-2.4.29-linux-x64*.tgz')).first
     end
 
     it 'prints a yaml representation of the source used to build the binary to stdout' do
       yaml_source = @output.match(/Source YAML:(.*)/m)[1]
       expect(YAML.load(yaml_source)).to match_array([
         {
-          "url"=>"https://archive.apache.org/dist/httpd/httpd-2.4.12.tar.bz2",
-          "sha256"=>"ad6d39edfe4621d8cc9a2791f6f8d6876943a9da41ac8533d77407a2e630eae4"
+          "url"=>"https://archive.apache.org/dist/httpd/httpd-2.4.29.tar.bz2",
+          "sha256"=>"777753a5a25568a2a27428b2214980564bc1c38c1abf9ccc7630b639991f7f00"
         }, {
           "url"=>"http://apache.mirrors.tds.net/apr/apr-1.6.3.tar.gz",
           "sha256"=>"8fdabcc0004216c3588b7dca0f23d104dfe012a47e2bb6f13827534a6ee73aa7"
@@ -65,26 +65,37 @@ aySUQcOvO67Z14d9E9ziX/E24KWl6xRymmy9VhzawgSmf//3yZVaD6C/8om3qMw=
         }, {
           "url"=>"http://apache.mirrors.tds.net/apr/apr-util-1.6.1.tar.gz",
           "sha256"=>"b65e40713da57d004123b6319828be7f1273fbc6490e145874ee1177e112c459"
+        }, {
+          "url"=>"https://github.com/lloyd/yajl/archive/2.1.0.tar.gz",
+          "sha256"=>"3fb73364a5a30efe615046d07e6db9d09fd2b41c763c5f7d3bfb121cd5c5ac5a"
+        }, {
+          "url"=>"https://www.modsecurity.org/tarball/2.9.2/modsecurity-2.9.2.tar.gz",
+          "sha256"=>"41a8f73476ec891f3a9e8736b98b64ea5c2105f1ce15ea57a1f05b4bf2ffaeb5"
         }
       ])
     end
 
     it 'includes the yaml representation of the source inside the resulting tarball' do
-      yaml_source = `tar xzf httpd-2.4.12-linux-x64.tgz sources.yml -O`
+      yaml_source = `tar xzf httpd-2.4.29-linux-x64.tgz sources.yml -O`
       expect(YAML.load(yaml_source)).to match_array([
         {
-          "url"=>"https://archive.apache.org/dist/httpd/httpd-2.4.12.tar.bz2",
-          "sha256"=>"ad6d39edfe4621d8cc9a2791f6f8d6876943a9da41ac8533d77407a2e630eae4"
+          "url"=>"https://archive.apache.org/dist/httpd/httpd-2.4.29.tar.bz2",
+          "sha256"=>"777753a5a25568a2a27428b2214980564bc1c38c1abf9ccc7630b639991f7f00"
         }, {
           "url"=>"http://apache.mirrors.tds.net/apr/apr-1.6.3.tar.gz",
           "sha256"=>"8fdabcc0004216c3588b7dca0f23d104dfe012a47e2bb6f13827534a6ee73aa7"
         }, {
           "url"=>"http://apache.mirrors.tds.net/apr/apr-iconv-1.2.2.tar.gz",
           "sha256"=>"ce94c7722ede927ce1e5a368675ace17d96d60ff9b8918df216ee5c1298c6a5e"
-        },
-        {
+        }, {
           "url"=>"http://apache.mirrors.tds.net/apr/apr-util-1.6.1.tar.gz",
           "sha256"=>"b65e40713da57d004123b6319828be7f1273fbc6490e145874ee1177e112c459"
+        }, {
+          "url"=>"https://github.com/lloyd/yajl/archive/2.1.0.tar.gz",
+          "sha256"=>"3fb73364a5a30efe615046d07e6db9d09fd2b41c763c5f7d3bfb121cd5c5ac5a"
+        }, {
+          "url"=>"https://www.modsecurity.org/tarball/2.9.2/modsecurity-2.9.2.tar.gz",
+          "sha256"=>"41a8f73476ec891f3a9e8736b98b64ea5c2105f1ce15ea57a1f05b4bf2ffaeb5"
         }
       ])
     end
