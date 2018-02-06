@@ -30,6 +30,7 @@ describe 'building a binary', :integration do
       expect(tar_contains_file('httpd/lib/libapriconv-1.so.0')).to eq true
       expect(tar_contains_file('httpd/lib/apr-util-1/apr_ldap.so')).to eq true
       expect(tar_contains_file('httpd/lib/iconv/utf-8.so')).to eq true
+      expect(tar_contains_file('httpd/lib/libyajl.so.2')).to eq true
     end
   end
 end

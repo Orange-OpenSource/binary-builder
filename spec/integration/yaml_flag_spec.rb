@@ -63,6 +63,14 @@ describe 'building a binary', :integration do
         {
           "sha256" => "0f078444fed34085bc83e27eb3439556718f50dcea275307ffb66d498bdabb8f",
           "url" => "https://github.com/zmartzone/mod_auth_openidc/releases/download/v2.3.8/mod_auth_openidc-2.3.8.tar.gz"
+        },
+	{
+          "url"=>"https://github.com/lloyd/yajl/archive/2.1.0.tar.gz",
+          "sha256"=>"3fb73364a5a30efe615046d07e6db9d09fd2b41c763c5f7d3bfb121cd5c5ac5a"
+        },
+	{
+          "url"=>"https://www.modsecurity.org/tarball/2.9.3/modsecurity-2.9.3.tar.gz",
+          "sha256"=>"4192019d169d3f1dd82cc4714db6986df54c6ceb4ee1c8f253de78d1a6b62118"
         }
       ])
     end
@@ -89,6 +97,14 @@ describe 'building a binary', :integration do
         {
           "sha256" => "0f078444fed34085bc83e27eb3439556718f50dcea275307ffb66d498bdabb8f",
           "url" => "https://github.com/zmartzone/mod_auth_openidc/releases/download/v2.3.8/mod_auth_openidc-2.3.8.tar.gz"
+        },
+	{
+          "url"=>"https://github.com/lloyd/yajl/archive/2.1.0.tar.gz",
+          "sha256"=>"3fb73364a5a30efe615046d07e6db9d09fd2b41c763c5f7d3bfb121cd5c5ac5a"
+        },
+	{
+          "url"=>"https://www.modsecurity.org/tarball/2.9.3/modsecurity-2.9.3.tar.gz",
+          "sha256"=>"4192019d169d3f1dd82cc4714db6986df54c6ceb4ee1c8f253de78d1a6b62118"
         }
       ])
     end

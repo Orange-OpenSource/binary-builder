@@ -38,6 +38,58 @@ class AprUtilRecipe < BaseRecipe
   end
 end
 
+class YAJLRecipe < BaseRecipe
+  def configure
+    return if configured?
+    execute('configure', %W(bash configure -p #{path}))
+  end
+
+  def compile
+    execute('compile', [make_cmd])
+  end
+
+  def install
+    return if installed?
+    execute('install', [make_cmd, 'install'])
+  end
+
+  def url
+    "https://github.com/lloyd/yajl/archive/#{version}.tar.gz"
+  end
+
+  def setup_tar
+    system <<-eof
+      install -m 755 "#{path}/lib/libyajl.so.2" "#{@httpd_path}/lib"
+    eof
+  end
+end
+
+class ModSecurityRecipe < BaseRecipe
+  def configure_options
+    [
+      "--with-apxs=#{@httpd_path}/bin/apxs",
+      "--with-apr=#{@apr_path}",
+      "--with-apu=#{@apr_util_path}",
+      "--with-yajl=#{@yajl_path}/lib #{@yajl_path}/include"
+    ]
+  end
+
+  def install
+    return if installed?
+    execute('install', [make_cmd, 'install', "prefix=#{path}"])
+  end
+
+  def url
+    "https://www.modsecurity.org/tarball/#{version}/modsecurity-#{version}.tar.gz"
+  end
+
+  def setup_tar
+    system <<-eof
+      install -m 755 "#{path}/lib/mod_security2.so" "#{@httpd_path}/modules/"
+    eof
+  end
+end
+
 class HTTPdRecipe < BaseRecipe
   def computed_options
     [
@@ -123,6 +175,7 @@ class HTTPdMeal
     apr_iconv_recipe.cook
     apr_util_recipe.cook
     httpd_recipe.cook
+    httpd_recipe.activate
 
     # this symlink is needed so that modules can call `apxs`
     #  putting it here because we only need to do it once
@@ -135,6 +188,8 @@ class HTTPdMeal
 
     run('apt-get install -y libjansson-dev libcjose-dev libhiredis-dev') or raise 'Failed to install additional dependencies'
     mod_auth_openidc_recipe.cook
+    yajl_recipe.cook
+    mod_security_recipe.cook
   end
 
   def url
@@ -155,6 +210,8 @@ class HTTPdMeal
 
   def setup_tar
     httpd_recipe.setup_tar
+    yajl_recipe.setup_tar
+    mod_security_recipe.setup_tar
   end
 
   private
@@ -175,6 +232,8 @@ class HTTPdMeal
       apr_recipe.send(:files_hashs)       +
       apr_iconv_recipe.send(:files_hashs) +
       apr_util_recipe.send(:files_hashs) +
+      yajl_recipe.send(:files_hashs) +
+      mod_security_recipe.send(:files_hashs) +
       mod_auth_openidc_recipe.send(:files_hashs)
 
     hashes
@@ -208,5 +267,18 @@ class HTTPdMeal
 
   def apr_recipe
     @apr_recipe ||= AprRecipe.new('apr', '1.7.0', md5: '757239852b082b844e268a86f2806fd2')
+  end
+
+  def yajl_recipe
+    @yajl_recipe ||= YAJLRecipe.new('yajl', '2.1.0', httpd_path: httpd_recipe.path,
+                                                     md5: '6887e0ed7479d2549761a4d284d3ecb0')
+  end
+
+  def mod_security_recipe
+    @mod_security_recipe ||= ModSecurityRecipe.new('mod_security', '2.9.2', apr_path: apr_recipe.path,
+                                                                            apr_util_path: apr_util_recipe.path,
+                                                                            yajl_path: yajl_recipe.path,
+                                                                            httpd_path: httpd_recipe.path,
+                                                                            sha256: '41a8f73476ec891f3a9e8736b98b64ea5c2105f1ce15ea57a1f05b4bf2ffaeb5')
   end
 end
