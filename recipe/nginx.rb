@@ -1,7 +1,15 @@
 # encoding: utf-8
+require_relative '../lib/openssl_replace'
 require_relative 'base'
 
 class NginxRecipe < BaseRecipe
+
+  def initialize(name, version, options = {})
+    super name, version, options
+    # override openssl in container
+    OpenSSLReplace.replace_openssl
+  end
+
   def computed_options
     [
       '--prefix=/',

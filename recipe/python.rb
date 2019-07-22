@@ -1,13 +1,20 @@
 # encoding: utf-8
 require 'fileutils'
 require 'mini_portile'
+require_relative '../lib/openssl_replace'
 require_relative 'base'
 
 class PythonRecipe < BaseRecipe
+  def initialize(name, version, options = {})
+    super name, version, options
+    # override openssl in container
+    OpenSSLReplace.replace_openssl
+  end
+
   def computed_options
     [
       '--enable-shared',
-      '--with-ensurepip=no',
+      '--with-ensurepip=yes',
       '--with-dbmliborder=bdb:gdbm',
       '--with-tcltk-includes="-I/usr/include/tcl8.6"',
       '--with-tcltk-libs="-L/usr/lib/x86_64-linux-gnu -ltcl8.6 -L/usr/lib/x86_64-linux-gnu -ltk8.6"',

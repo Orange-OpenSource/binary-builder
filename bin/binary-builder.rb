@@ -16,12 +16,11 @@ recipes = {
      'python' => PythonRecipe,
      'php' => PhpMeal,
      'php7' => PhpMeal,
-     'nginx' => NginxRecipe,
+     'nginx-static' => NginxRecipe,
      'godep' => GodepMeal,
      'glide' => GlideRecipe,
      'go' => GoRecipe,
      'dep' => DepRecipe,
-     'dotnet' => DotNetRecipe,
      'hwc' => HwcRecipe
 }
 

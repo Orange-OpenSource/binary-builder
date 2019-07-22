@@ -87,7 +87,7 @@ RSpec.configure do |config|
   end
 
   def setup_docker_container(docker_container_name, directory_mapping)
-    docker_image = 'cloudfoundry/cflinuxfs2'
+    docker_image = "cloudfoundry/#{ENV.fetch('STACK', 'cflinuxfs2')}"
     `docker run --name #{docker_container_name} -dit #{directory_mapping} -e CCACHE_DIR=/binary-builder/.ccache -w /binary-builder #{docker_image} sh -c 'env PATH=/usr/lib/ccache:$PATH bash'`
     `docker exec #{docker_container_name} apt-get -y install ccache`
     `docker exec #{docker_container_name} gem install bundler --no-ri --no-rdoc`
@@ -123,16 +123,6 @@ RSpec.configure do |config|
       oldfile, newfile = m[1,2]
       return false if newfile.start_with?('/')
       tar_contains_file(File.dirname(oldfile) + '/' + newfile)
-    end
-  end
-
-  def php_extensions_source(php_major_version)
-    return ENV['PHP_EXTENSIONS_SOURCE'] if ENV['PHP_EXTENSIONS_SOURCE']
-
-    if php_major_version == '5'
-      'https://raw.githubusercontent.com/cloudfoundry/public-buildpacks-ci-robots/master/binary-builds/php-extensions.yml'
-    else
-      'https://raw.githubusercontent.com/cloudfoundry/public-buildpacks-ci-robots/master/binary-builds/php7-extensions.yml'
     end
   end
 end

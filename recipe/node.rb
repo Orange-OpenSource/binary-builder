@@ -4,6 +4,7 @@ require 'fileutils'
 require_relative 'base'
 
 class NodeRecipe < BaseRecipe
+
   def computed_options
     puts '----- computed_options ---------'
     puts [ Gem::Version.new(version), '>=', Gem::Version.new('6.0.0') ]

@@ -18,6 +18,7 @@ class Php7Recipe < BaseRecipe
       '--with-bz2=shared',
       '--with-curl=shared',
       '--enable-dba=shared',
+      "--with-password-argon2=#{ENV['STACK'] == 'cflinuxfs3' ? '/usr/lib/x86_64-linux-gnu' : '/usr/local'}",
       '--with-cdb',
       '--with-gdbm',
       '--with-mcrypt=shared',
@@ -39,6 +40,7 @@ class Php7Recipe < BaseRecipe
       '--with-ldap=shared',
       '--with-ldap-sasl',
       '--with-zlib=shared',
+      "#{ENV['STACK'] == 'cflinuxfs3' ? '--with-libzip=/usr/local/lib' : ''}",
       '--with-xsl=shared',
       '--with-snmp=shared',
       '--enable-mbstring=shared',
@@ -47,7 +49,11 @@ class Php7Recipe < BaseRecipe
       '--with-openssl=shared',
       '--enable-fpm',
       '--enable-pcntl=shared',
-      '--with-readline'
+      '--enable-sysvsem=shared',
+      '--enable-sysvshm=shared',
+      '--enable-sysvmsg=shared',
+      '--enable-shmop=shared',
+      "#{ENV['STACK'] == 'cflinuxfs3' ? '--with-pdo_sqlsrv=shared' : ''}"
     ]
   end
 
@@ -83,21 +89,36 @@ class Php7Recipe < BaseRecipe
   end
 
   def setup_tar
+    lib_dir   = `lsb_release -r | awk '{print $2}'`.strip == '18.04' ?
+      '/usr/lib/x86_64-linux-gnu' :
+      '/usr/lib'
+    argon_dir = `lsb_release -r | awk '{print $2}'`.strip == '18.04' ?
+      '/usr/lib/x86_64-linux-gnu' :
+      '/usr/local/lib'
+
     system <<-eof
       cp -a /usr/local/lib/x86_64-linux-gnu/librabbitmq.so* #{path}/lib/
       cp -a #{@hiredis_path}/lib/libhiredis.so* #{path}/lib/
       cp -a /usr/lib/libc-client.so* #{path}/lib/
       cp -a /usr/lib/libmcrypt.so* #{path}/lib
-      cp -a /usr/lib/libaspell.so* #{path}/lib
-      cp -a /usr/lib/libpspell.so* #{path}/lib
+      cp -a #{lib_dir}/libaspell.so* #{path}/lib
+      cp -a #{lib_dir}/libpspell.so* #{path}/lib
       cp -a #{@libmemcached_path}/lib/libmemcached.so* #{path}/lib/
       cp -a /usr/local/lib/x86_64-linux-gnu/libcassandra.so* #{path}/lib
       cp -a /usr/local/lib/libuv.so* #{path}/lib
+      cp -a #{argon_dir}/libargon2.so* #{path}/lib
       cp -a /usr/lib/librdkafka.so* #{path}/lib
+      cp -a /usr/lib/x86_64-linux-gnu/libzip.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libGeoIP.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libgpgme.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libassuan.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libgpg-error.so* #{path}/lib/
+      cp -a /usr/lib/libtidy*.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/libenchant.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/libfbclient.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/librecode.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/libtommath.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/libmaxminddb.so* #{path}/lib/
     eof
 
     if IonCubeRecipe.build_ioncube?(version)

@@ -34,6 +34,35 @@ class AmqpPeclRecipe < PeclRecipe
   end
 end
 
+class LibMaxMindRecipe < BaseRecipe
+  def url
+    "https://github.com/maxmind/libmaxminddb/releases/download/#{version}/libmaxminddb-#{version}.tar.gz"
+  end
+end
+
+class MaxMindRecipe < BaseRecipe
+  def url
+    "https://github.com/maxmind/MaxMind-DB-Reader-php/archive/v#{version}.tar.gz"
+  end
+
+  def work_path
+    File.join(tmp_path, "MaxMind-DB-Reader-php-#{version}", 'ext')
+  end
+
+  def configure_options
+    [
+      "--with-php-config=#{@php_path}/bin/php-config"
+    ]
+  end
+
+  def configure
+    return if configured?
+
+    execute('configure', %w(bash -c phpize))
+    execute('configure', %w(sh configure) + computed_options)
+  end
+end
+
 class GeoipRecipe < PeclRecipe
     def cook
         super
@@ -47,7 +76,7 @@ class GeoipRecipe < PeclRecipe
         eof
         if File.exist? "BUNDLE_GEOIP_LITE" then
             products = "GeoLite-Legacy-IPv6-City GeoLite-Legacy-IPv6-Country 506 517 533"
-            updater = MaxMindGeoIpUpdater.new('999999', '000000000000', File.join(@php_path, 'geoipdb', 'dbs'))
+            updater = MaxMindGeoIpUpdater.new(MaxMindGeoIpUpdater.FREE_USER, MaxMindGeoIpUpdater.FREE_LICENSE, File.join(@php_path, 'geoipdb', 'dbs'))
             products.split(" ").each do |product|
                 updater.download_product(product)
             end
@@ -70,6 +99,12 @@ class HiredisRecipe < BaseRecipe
   end
 end
 
+class LibSodiumRecipe < BaseRecipe
+  def url
+    "https://github.com/jedisct1/libsodium/releases/download/#{version}/libsodium-#{version}.tar.gz"
+  end
+end
+
 class IonCubeRecipe < BaseRecipe
   def url
     "http://downloads3.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64_#{version}.tar.gz"
@@ -82,8 +117,7 @@ class IonCubeRecipe < BaseRecipe
   def install; end
 
   def self.build_ioncube?(php_version)
-    major, minor, _ = php_version.split('.')
-    !(major == '7' && minor == '1')
+    true
   end
 
   def path
@@ -96,14 +130,24 @@ class LibmemcachedRecipe < BaseRecipe
     "https://launchpad.net/libmemcached/1.0/#{version}/+download/libmemcached-#{version}.tar.gz"
   end
 
-  def patch
-    system <<-eof
-      cd #{work_path}
-      sed -i '\\|include tests/include.am|d' Makefile.am
-      aclocal
-      automake --add-missing
-    eof
+  def configure
+    return if configured?
+
+    cache_file = File.join(tmp_path, 'configure.options_cache')
+    File.open(cache_file, "w") { |f| f.write computed_options.to_s }
+
+    ENV['CXXFLAGS'] = '-fpermissive'
+    execute('configure', %w(./configure) + computed_options)
   end
+
+# def patch
+#   system <<-eof
+#     cd #{work_path}
+#     sed -i '\\|include tests/include.am|d' Makefile.am
+#     aclocal
+#     automake --add-missing
+#   eof
+# end
 end
 
 # We need to compile from source until Ubuntu packages version 2.3.0+
@@ -198,6 +242,10 @@ class MemcachedPeclRecipe < PeclRecipe
 end
 
 class FakePeclRecipe < PeclRecipe
+  def url
+    "file://#{@php_source}/ext/#{name}-#{version}.tar.gz"
+  end
+
   def download
     # this copys an extension folder out of the PHP source director (i.e. `ext/<name>`)
     # it pretends to download it by making a zip of the extension files
@@ -213,10 +261,6 @@ class FakePeclRecipe < PeclRecipe
 end
 
 class OdbcRecipe < FakePeclRecipe
-  def url
-    "file://#{@php_source}/ext/odbc-#{version}.tar.gz"
-  end
-
   def configure_options
     [
       "--with-unixODBC=shared,#{@unixodbc_path}"
@@ -243,11 +287,23 @@ class OdbcRecipe < FakePeclRecipe
   end
 end
 
-class PdoOdbcRecipe < FakePeclRecipe
-  def url
-    "file://#{@php_source}/ext/pdo_odbc-#{version}.tar.gz"
+class SodiumRecipe < FakePeclRecipe
+  def configure_options
+    ENV['LDFLAGS'] = "-L#{@libsodium_path}/lib"
+    [
+      "--with-php-config=#{@php_path}/bin/php-config",
+      "--with-sodium=#{@libsodium_path}"
+    ]
   end
 
+  def setup_tar
+    system <<-eof
+      cp -a #{@libsodium_path}/lib/libsodium.so* #{@php_path}/lib/
+    eof
+  end
+end
+
+class PdoOdbcRecipe < FakePeclRecipe
   def configure_options
     [
       "--with-pdo-odbc=unixODBC,#{@unixodbc_path}"
@@ -263,24 +319,7 @@ class PdoOdbcRecipe < FakePeclRecipe
 
 end
 
-class OraclePdoRecipe < PeclRecipe
-  def url
-    "file://#{@php_source}/ext/pdo_oci-#{version}.tar.gz"
-  end
-
-  def download
-    # this copys an extension folder out of the PHP source director (i.e. `ext/<name>`)
-    # it pretends to download it by making a zip of the extension files
-    # that way the rest of the PeclRecipe works normally
-    files_hashs.each do |file|
-      path = URI(file[:url]).path.rpartition('-')[0] # only need path before the `-`, see url above
-      system <<-eof
-        echo 'tar czf "#{file[:local_path]}" -C "#{File.dirname(path)}" "#{File.basename(path)}"'
-        tar czf "#{file[:local_path]}" -C "#{File.dirname(path)}" "#{File.basename(path)}"
-      eof
-    end
-  end
-
+class OraclePdoRecipe < FakePeclRecipe
   def configure_options
     [
       "--with-pdo-oci=shared,instantclient,/oracle,#{OraclePdoRecipe.oracle_version}"
@@ -347,8 +386,7 @@ class PhalconRecipe < PeclRecipe
   end
 
   def self.build_phalcon?(php_version)
-    major, minor, _ = php_version.split('.')
-    !(major == '7' && minor == '1')
+    true
   end
 end
 
@@ -366,9 +404,26 @@ class PHPIRedisRecipe < PeclRecipe
   end
 end
 
+class RedisPeclRecipe < PeclRecipe
+  def configure_options
+    [
+      "--with-php-config=#{@php_path}/bin/php-config",
+      "--enable-redis-igbinary",
+      "--enable-redis-lzf",
+      "--with-liblzf=no"
+    ]
+  end
+end
+
 class PHPProtobufPeclRecipe < PeclRecipe
   def url
     "https://github.com/allegro/php-protobuf/archive/v#{version}.tar.gz"
+  end
+end
+
+class TidewaysXhprofRecipe < PeclRecipe
+  def url
+    "https://github.com/tideways/php-xhprof-extension/archive/v#{version}.tar.gz"
   end
 end
 
@@ -411,7 +466,7 @@ class SnmpRecipe
       mkdir -p mibs
       cp "/usr/lib/x86_64-linux-gnu/libnetsnmp.so.30" lib/
       # copy mibs that are packaged freely
-      cp /usr/share/snmp/mibs/* mibs
+      cp -r /usr/share/snmp/mibs/* mibs
       # copy mibs downloader & smistrip, will download un-free mibs
       cp /usr/bin/download-mibs bin
       cp /usr/bin/smistrip bin

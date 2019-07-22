@@ -21,8 +21,8 @@ class JRubyMeal
     java_jdk_dir = '/opt/java'
     java_jdk_tar_file = File.join(java_jdk_dir, 'openjdk-8-jdk.tar.gz')
     java_jdk_bin_dir = File.join(java_jdk_dir, 'bin')
-    java_jdk_sha256 = '14016fe0b8005c60013f2c418456ae1e46a8c46569db2900b1eaca589230afcd'
-    java_buildpack_java_sdk = "https://java-buildpack.cloudfoundry.org/openjdk-jdk/trusty/x86_64/openjdk-1.8.0_141.tar.gz"
+    java_jdk_sha256 = '0749e51942641f369a9411ba27207fbf74b8836f1fb19a3d85cee55e13387a9c'
+    java_buildpack_java_sdk = "https://java-buildpack.cloudfoundry.org/openjdk-jdk/trusty/x86_64/openjdk-jdk-1.8.0_212-trusty.tar.gz"
 
     FileUtils.mkdir_p(java_jdk_dir)
     raise "Downloading openjdk-8-jdk failed." unless system("wget #{java_buildpack_java_sdk} -O #{java_jdk_tar_file}")
@@ -72,6 +72,6 @@ class JRubyMeal
   end
 
   def maven
-    @maven ||= MavenRecipe.new('maven', '3.5.2', md5: '08c769d4348a88bf9f224d84fa9d2b2b')
+    @maven ||= MavenRecipe.new('maven', '3.6.0', md5: '15bbfec555ec1b17d0d1a0fd14b7c329')
   end
 end

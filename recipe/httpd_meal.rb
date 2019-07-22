@@ -96,6 +96,7 @@ class HTTPdRecipe < BaseRecipe
       '--prefix=/app/httpd',
       "--with-apr=#{@apr_path}",
       "--with-apr-util=#{@apr_util_path}",
+      '--with-ssl=/usr/lib/x86_64-linux-gnu',
       '--enable-mpms-shared=worker event',
       '--enable-mods-shared=reallyall',
       '--disable-isapi',
@@ -125,7 +126,7 @@ class HTTPdRecipe < BaseRecipe
     system <<-eof
       cd #{path}
 
-      rm -rf build/ cgi-bin/ error/ icons/ include/ man/ manual/ htdocs/
+      rm -rf cgi-bin/ error/ icons/ include/ man/ manual/ htdocs/
       rm -rf conf/extra/* conf/httpd.conf conf/httpd.conf.bak conf/magic conf/original
 
       mkdir -p lib
@@ -136,7 +137,24 @@ class HTTPdRecipe < BaseRecipe
       mkdir -p "./lib/iconv"
       cp "#{@apr_iconv_path}/lib/libapriconv-1.so.0" ./lib
       cp "#{@apr_iconv_path}/lib/iconv/"*.so ./lib/iconv/
+      cp /usr/lib/x86_64-linux-gnu/libcjose.so* ./lib/
+      cp /usr/lib/x86_64-linux-gnu/libhiredis.so* ./lib/
+      cp /usr/lib/x86_64-linux-gnu/libjansson.so* ./lib/
     eof
+  end
+end
+
+class ModAuthOpenidcRecipe < BaseRecipe
+  def url
+    "https://github.com/zmartzone/mod_auth_openidc/releases/download/v#{version}/mod_auth_openidc-#{version}.tar.gz"
+  end
+
+  def configure_options
+    ENV['APR_LIBS'] = `#{@apr_path}/bin/apr-1-config --link-ld --libs`
+    ENV['APR_CFLAGS'] = `#{@apr_path}/bin/apr-1-config --cflags --includes`
+    [
+      "--with-apxs2=#{@httpd_path}/bin/apxs"
+    ]
   end
 end
 
@@ -150,15 +168,32 @@ class HTTPdMeal
   end
 
   def cook
+    run('apt update') or raise 'Failed to apt update'
+    run('apt-get install -y libldap2-dev') or raise 'Failed to install libldap2-dev'
+
     apr_recipe.cook
     apr_iconv_recipe.cook
     apr_util_recipe.cook
-
     httpd_recipe.cook
-    httpd_recipe.activate
+
+     # this symlink is needed so that modules can call `apxs`
+    #  putting it here because we only need to do it once
+    system <<-eof
+      cd /app
+      if ! [ -L "/app/httpd" ]; then
+        ln -s "#{httpd_recipe.path}" httpd
+      fi
+    eof
 
     yajl_recipe.cook
     mod_security_recipe.cook
+
+
+    # if ENV['STACK'] == 'cflinuxfs3'
+    #   run('apt-get install -y libjansson-dev libcjose-dev libhiredis-dev') or raise 'Failed to install additional dependencies'
+    #   mod_auth_openidc_recipe.cook
+    # end
+
   end
 
   def url
@@ -185,13 +220,37 @@ class HTTPdMeal
 
   private
 
+  def run(command)
+    output = `#{command}`
+    if $?.success?
+      return true
+    else
+      STDOUT.puts "ERROR, output was:"
+      STDOUT.puts output
+      return false
+    end
+  end
+
   def files_hashs
-    httpd_recipe.send(:files_hashs) +
-      apr_recipe.send(:files_hashs) +
+    hashes = httpd_recipe.send(:files_hashs) +
+      apr_recipe.send(:files_hashs)       +
       apr_iconv_recipe.send(:files_hashs) +
       apr_util_recipe.send(:files_hashs) +
       yajl_recipe.send(:files_hashs) +
       mod_security_recipe.send(:files_hashs)
+
+    # if ENV['STACK'] == 'cflinuxfs3'
+    #   hashes += mod_auth_openidc_recipe.send(:files_hashs)
+    # end
+
+    hashes
+  end
+
+  def mod_auth_openidc_recipe
+    @mod_auth_openidc ||= ModAuthOpenidcRecipe.new('mod-auth-openidc', '2.3.8',
+      httpd_path: httpd_recipe.path,
+      apr_path: apr_recipe.path,
+      md5: 'd6abc2f68dabf5d2557400af2499f500')
   end
 
   def httpd_recipe
@@ -214,7 +273,7 @@ class HTTPdMeal
   end
 
   def apr_recipe
-    @apr_recipe ||= AprRecipe.new('apr', '1.6.3', md5: '57c6cc26a31fe420c546ad2234f22db4')
+    @apr_recipe ||= AprRecipe.new('apr', '1.7.0', md5: '757239852b082b844e268a86f2806fd2')
   end
 
   def yajl_recipe
@@ -223,10 +282,10 @@ class HTTPdMeal
   end
 
   def mod_security_recipe
-    @mod_security_recipe ||= ModSecurityRecipe.new('mod_security', '2.9.2', apr_path: apr_recipe.path,
+    @mod_security_recipe ||= ModSecurityRecipe.new('mod_security', '2.9.3', apr_path: apr_recipe.path,
                                                                             apr_util_path: apr_util_recipe.path,
                                                                             yajl_path: yajl_recipe.path,
                                                                             httpd_path: httpd_recipe.path,
-                                                                            sha256: '41a8f73476ec891f3a9e8736b98b64ea5c2105f1ce15ea57a1f05b4bf2ffaeb5')
+                                                                            sha256: '4192019d169d3f1dd82cc4714db6986df54c6ceb4ee1c8f253de78d1a6b62118')
   end
 end

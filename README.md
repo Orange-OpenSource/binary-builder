@@ -18,7 +18,7 @@ This tool provides a mechanism for building binaries for the Cloud Foundry build
 
 # Usage
 
-The scripts are meant to be run on a Cloud Foundry [stack](https://docs.cloudfoundry.org/concepts/stacks.html).
+The scripts are meant to be run as root on a Cloud Foundry [stack](https://docs.cloudfoundry.org/concepts/stacks.html).
 
 ## Running within Docker
 
@@ -48,7 +48,22 @@ docker run -w /binary-builder -v `pwd`:/binary-builder -it cloudfoundry/cflinuxf
 ./bin/binary-builder --name=php --version=5.6.14 --md5=ae625e0cfcfdacea3e7a70a075e47155 --php-extensions-file=./php-extensions.yml
 ```
 
-For an example of what this file looks like, see: https://github.com/cloudfoundry/public-buildpacks-ci-robots/blob/master/binary-builds/php-extensions.yml
+For an example of what this file looks like, see: [PHP 5](https://github.com/cloudfoundry/buildpacks-ci/blob/master/tasks/build-binary-new/php-extensions.yml), [PHP 7.0 & 7.1](https://github.com/cloudfoundry/buildpacks-ci/blob/master/tasks/build-binary-new/php7-extensions.yml) & [PHP 7.2](https://github.com/cloudfoundry/buildpacks-ci/blob/master/tasks/build-binary-new/php72-extensions.yml).
+
+# Building nginx
+
+Nginx uses GPG keys to verify the source tarball, so you'll need something like the following code to build the NGinx binary:
+
+```
+version=1.15.9
+gpg_signature_url="http://nginx.org/download/nginx-${version}.tar.gz.asc"
+gpg_signature=`curl -sL ${gpg_signature_url}`
+
+docker run -w /binary-builder -v `pwd`:/binary-builder \
+  -it cloudfoundry/cflinuxfs2 ./bin/binary-builder \
+  --name=nginx-static --gpg-rsa-key-id=A1C052F8 \
+  --version=$version --gpg-signature="${gpg_signature}"
+```
 
 # Contributing
 

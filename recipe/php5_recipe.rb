@@ -51,7 +51,11 @@ class Php5Recipe < BaseRecipe
       '--with-openssl=shared',
       '--enable-fpm',
       '--enable-pcntl=shared',
-      '--with-readline=shared'
+      '--with-readline=shared',
+      '--enable-sysvsem=shared',
+      '--enable-sysvshm=shared',
+      '--enable-sysvmsg=shared',
+      '--enable-shmop=shared'
     ]
   end
 
@@ -76,6 +80,7 @@ class Php5Recipe < BaseRecipe
 
     # LIBS=-lz enables using zlib when configuring
     execute('configure', ['bash', '-c', "LIBS=-lz ./configure #{computed_options.join ' '}"])
+    execute('patch', ['bash', '-c', 'patch -p1 -i /binary-builder/php-openssl.patch'])
   end
 
   def major_version
@@ -87,14 +92,19 @@ class Php5Recipe < BaseRecipe
   end
 
   def setup_tar
-  system <<-eof
+    lib_dir = `lsb_release -r | awk '{print $2}'`.strip == '18.04' ?
+                  '/usr/lib/x86_64-linux-gnu' :
+                  '/usr/lib'
+
+    system <<-eof
+      
       cp -a #{@hiredis_path}/lib/libhiredis.so* #{path}/lib/
       cp #{@ioncube_path}/ioncube/ioncube_loader_lin_#{major_version}.so #{zts_path}/ioncube.so
       cp -a #{@libmemcached_path}/lib/libmemcached.so* #{path}/lib/
       cp -a /usr/lib/libc-client.so* #{path}/lib/
       cp -a /usr/lib/libmcrypt.so* #{path}/lib
-      cp -a /usr/lib/libaspell.so* #{path}/lib
-      cp -a /usr/lib/libpspell.so* #{path}/lib
+      cp -a #{lib_dir}/libaspell.so* #{path}/lib
+      cp -a #{lib_dir}/libpspell.so* #{path}/lib
       cp -a /usr/lib/x86_64-linux-gnu/libgearman.so* #{path}/lib
       cp -a /usr/local/lib/x86_64-linux-gnu/libcassandra.so* #{path}/lib
       cp -a /usr/local/lib/libuv.so* #{path}/lib
@@ -105,6 +115,11 @@ class Php5Recipe < BaseRecipe
       cp -a /usr/lib/x86_64-linux-gnu/libgpgme.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libassuan.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libgpg-error.so* #{path}/lib/
+      cp -a /usr/lib/libtidy*.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/libenchant.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/libfbclient.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/librecode.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/libtommath.so* #{path}/lib/
 
       # Remove unused files
       rm "#{path}/etc/php-fpm.conf.default"

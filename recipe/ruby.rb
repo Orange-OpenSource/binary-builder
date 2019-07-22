@@ -13,6 +13,12 @@ class RubyRecipe < BaseRecipe
     ]
   end
 
+  def cook
+    run('apt-get update') or raise 'Failed to apt-get update'
+    run('apt-get -y install libffi-dev') or raise 'Failed to install libffi-dev'
+    super
+  end
+
   def prefix_path
     "/app/vendor/ruby-#{version}"
   end
@@ -27,5 +33,18 @@ class RubyRecipe < BaseRecipe
 
   def url
     "https://cache.ruby-lang.org/pub/ruby/#{minor_version}/ruby-#{version}.tar.gz"
+  end
+
+  private
+
+  def run(command)
+    output = `#{command}`
+    if $?.success?
+      return true
+    else
+      STDOUT.puts "ERROR, output was:"
+      STDOUT.puts output
+      return false
+    end
   end
 end

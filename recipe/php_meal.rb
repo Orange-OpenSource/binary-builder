@@ -9,7 +9,9 @@ class PhpMeal
   def initialize(name, version, options)
     @name    = name
     @version = version
-    @major_version = version.split('.').first
+    version_parts = version.split('.')
+    @major_version = version_parts[0]
+    @minor_version = version_parts[1]
     @options = options
     @native_modules = []
     @extensions = []
@@ -19,10 +21,10 @@ class PhpMeal
 
     (@native_modules + @extensions).each do |recipe|
       recipe.instance_variable_set('@php_path', php_recipe.path)
+      recipe.instance_variable_set('@php_source', "#{php_recipe.send(:tmp_path)}/php-#{@version}")
 
-      if recipe.name == 'pdo_oci' || recipe.name == 'odbc' || recipe.name == 'pdo_odbc'
+      if recipe.is_a? FakePeclRecipe
         recipe.instance_variable_set('@version', @version)
-        recipe.instance_variable_set('@php_source', "#{php_recipe.send(:tmp_path)}/php-#{@version}")
         recipe.instance_variable_set('@files', [{url: recipe.url, md5: nil}])
       end
     end
@@ -30,10 +32,14 @@ class PhpMeal
 
   def cook
     system <<-eof
-      sudo apt-get update
-      sudo apt-get -y upgrade
-      sudo apt-get -y install #{apt_packages}
+      apt-get update
+      apt-get -y upgrade
+      apt-get -y install #{apt_packages}
+      apt-get -y install libkrb5-dev libc-client2007e libc-client2007e-dev
+      ln -s /usr/include/x86_64-linux-gnu/curl /usr/include/curl
+      ln -s /usr/lib/libc-client.a /usr/lib/x86_64-linux-gnu/libc-client.a
       #{install_libuv}
+      #{install_argon2}
       #{symlink_commands}
     eof
 
@@ -81,6 +87,7 @@ class PhpMeal
     end
     @extensions.detect{|r| r.name=='odbc'}&.setup_tar
     @extensions.detect{|r| r.name=='pdo_odbc'}&.setup_tar
+    @extensions.detect{|r| r.name=='sodium'}&.setup_tar
   end
 
   private
@@ -105,6 +112,8 @@ class PhpMeal
     php_extensions_hash = YAML.load_file(@options[:php_extensions_file])
 
     php_extensions_hash['extensions'].each do |hash|
+      next if ['sqlsrv', 'pdo_sqlsrv'].include?(hash['name']) && ENV['STACK'] != 'cflinuxfs3'
+
       klass = Kernel.const_get(hash['klass'])
 
       @extensions << klass.new(
@@ -130,30 +139,59 @@ class PhpMeal
         recipe.instance_variable_set('@unixodbc_path', @native_modules.detect{|r| r.name=='unixodbc'}.path)
       when 'pdo_odbc'
         recipe.instance_variable_set('@unixodbc_path', @native_modules.detect{|r| r.name=='unixodbc'}.path)
+      when 'sodium'
+        recipe.instance_variable_set('@libsodium_path', @native_modules.detect{|r| r.name=='libsodium'}.path)
       end
     end
   end
 
   def apt_packages
+    packages = php_common_apt_packages
     if @major_version == '5'
-      php5_apt_packages.join(" ")
+      packages += php5_apt_packages
+      if ENV['STACK'] == 'cflinuxfs2'
+        packages += php5_cflinuxfs2_apt_packages
+      elsif ENV['STACK'] == 'cflinuxfs3'
+        packages += php5_cflinuxfs3_apt_packages
+      end
     else
-      php7_apt_packages.join(" ")
+      packages += php7_apt_packages
+      if ENV['STACK'] == 'cflinuxfs2'
+        packages += php7_cflinuxfs2_apt_packages
+      elsif ENV['STACK'] == 'cflinuxfs3'
+        packages += php7_cflinuxfs3_apt_packages
+      end
     end
+    return packages.join(" ")
   end
 
   def php5_apt_packages
-    php_common_apt_packages + %w(freetds-dev libgearman-dev libsybdb5)
+    %w(freetds-dev libgearman-dev libsybdb5 libreadline-dev)
   end
 
   def php7_apt_packages
-    php_common_apt_packages
+    %w(libedit-dev)
+  end
+
+  def php5_cflinuxfs3_apt_packages
+    %w(libkrb5-dev libssl1.0-dev)
+  end
+
+  def php5_cflinuxfs2_apt_packages
+    %w(libssl-dev libcurl4-openssl-dev)
+  end
+
+  def php7_cflinuxfs3_apt_packages
+    %w(libkrb5-dev libssl-dev libcurl4-openssl-dev unixodbc-dev libmaxminddb-dev)
+  end
+
+  def php7_cflinuxfs2_apt_packages
+    %w(libssl-dev libcurl4-openssl-dev)
   end
 
   def php_common_apt_packages
     %w(libaspell-dev
       libc-client2007e-dev
-      libcurl4-openssl-dev
       libexpat1-dev
       libgdbm-dev
       libgmp-dev
@@ -161,20 +199,22 @@ class PhpMeal
       libjpeg-dev
       libldap2-dev
       libmcrypt-dev
-      libpng12-dev
+      libpng-dev
       libpspell-dev
-      libreadline-dev
       libsasl2-dev
       libsnmp-dev
       libsqlite3-dev
-      libssl-dev
       libtool
       libxml2-dev
       libzip-dev
       libzookeeper-mt-dev
       snmp-mibs-downloader
       automake
-      libgeoip-dev)
+      libgeoip-dev
+      libtidy-dev
+      libenchant-dev
+      firebird-dev
+      librecode-dev)
   end
 
   def install_libuv
@@ -190,6 +230,20 @@ class PhpMeal
     )
   end
 
+  def install_argon2
+    return '' if ENV['STACK'] == 'cflinuxfs3' || @major_version == '5' || (@major_version == '7' && @minor_version.to_i < 2)
+    %q((
+      cd /tmp
+      curl -L -O https://github.com/P-H-C/phc-winner-argon2/archive/20171227.tar.gz
+      tar zxf 20171227.tar.gz
+      cd phc-winner-argon2-20171227
+      make
+      make test
+      make install PREFIX=/usr/local
+      )
+    )
+  end
+
   def symlink_commands
     if @major_version == '5'
       php5_symlinks.join("\n")
@@ -199,15 +253,18 @@ class PhpMeal
   end
 
   def php5_symlinks
-    php_common_symlinks + ["sudo ln -fs /usr/lib/x86_64-linux-gnu/libsybdb.so /usr/lib/libsybdb.so"]
+    php_common_symlinks +
+        ["sudo ln -fs /usr/lib/x86_64-linux-gnu/libsybdb.so /usr/lib/libsybdb.so"]
   end
 
   def php7_symlinks
-    php_common_symlinks
+    php_common_symlinks +
+        ["sudo ln -s /usr/include/x86_64-linux-gnu/curl /usr/local/include/curl"] # This is required for php 7.0.X and 7.1.x on cflinuxfs3
   end
 
   def php_common_symlinks
-     ["sudo ln -fs /usr/include/x86_64-linux-gnu/gmp.h /usr/include/gmp.h",
+    ["sudo ln -s /usr/include/x86_64-linux-gnu/curl /usr/local/include/curl", # This is required for php 5.6.X, 7.0.X, and 7.1.x on cflinuxfs3
+      "sudo ln -fs /usr/include/x86_64-linux-gnu/gmp.h /usr/include/gmp.h",
       "sudo ln -fs /usr/lib/x86_64-linux-gnu/libldap.so /usr/lib/libldap.so",
       "sudo ln -fs /usr/lib/x86_64-linux-gnu/libldap_r.so /usr/lib/libldap_r.so"]
   end
@@ -221,6 +278,8 @@ class PhpMeal
        IonCubeRecipe.build_ioncube?(version)
     when 'oci8', 'pdo_oci'
        OraclePeclRecipe.oracle_sdk?
+    when 'maxmind', 'libmaxmind'
+       ENV['STACK'] == 'cflinuxfs3' ? true : false
     else
        true
     end
