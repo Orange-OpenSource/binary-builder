@@ -1,7 +1,7 @@
 # encoding: utf-8
 require_relative 'php_common_recipes'
 
-class Php7Recipe < BaseRecipe
+class Php5Recipe < BaseRecipe
   def configure_options
     [
       '--disable-static',
@@ -14,16 +14,25 @@ class Php7Recipe < BaseRecipe
       '--enable-calendar',
       '--enable-intl',
       '--with-kerberos',
+      '--enable-zip=shared',
       '--with-bz2=shared',
       '--with-curl=shared',
       '--enable-dba=shared',
-      "--with-password-argon2=/usr/lib/x86_64-linux-gnu",
       '--with-cdb',
       '--with-gdbm',
+      '--with-mcrypt=shared',
+      '--with-mhash=shared',
+      '--with-mysql=shared',
       '--with-mysqli=shared',
       '--enable-pdo=shared',
       '--with-pdo-sqlite=shared,/usr',
       '--with-pdo-mysql=shared,mysqlnd',
+      '--with-mssql=shared',
+      '--with-pdo-dblib=shared',
+      '--with-gd=shared',
+      '--with-jpeg-dir=/usr',
+      '--with-freetype-dir=/usr',
+      '--enable-gd-native-ttf',
       '--with-pdo-pgsql=shared',
       '--with-pgsql=shared',
       '--with-pspell=shared',
@@ -34,7 +43,6 @@ class Php7Recipe < BaseRecipe
       '--with-ldap=shared',
       '--with-ldap-sasl',
       '--with-zlib=shared',
-      '--with-libzip=/usr/local/lib',
       '--with-xsl=shared',
       '--with-snmp=shared',
       '--enable-mbstring=shared',
@@ -43,11 +51,11 @@ class Php7Recipe < BaseRecipe
       '--with-openssl=shared',
       '--enable-fpm',
       '--enable-pcntl=shared',
+      '--with-readline=shared',
       '--enable-sysvsem=shared',
       '--enable-sysvshm=shared',
       '--enable-sysvmsg=shared',
-      '--enable-shmop=shared',
-      '--with-pdo_sqlsrv=shared',
+      '--enable-shmop=shared'
     ]
   end
 
@@ -72,6 +80,7 @@ class Php7Recipe < BaseRecipe
 
     # LIBS=-lz enables using zlib when configuring
     execute('configure', ['bash', '-c', "LIBS=-lz ./configure #{computed_options.join ' '}"])
+    execute('patch', ['bash', '-c', 'patch -p1 -i /binary-builder/php-openssl.patch'])
   end
 
   def major_version
@@ -83,22 +92,25 @@ class Php7Recipe < BaseRecipe
   end
 
   def setup_tar
-    lib_dir   = '/usr/lib/x86_64-linux-gnu'
-    argon_dir = '/usr/lib/x86_64-linux-gnu'
+    lib_dir = `lsb_release -r | awk '{print $2}'`.strip == '18.04' ?
+                  '/usr/lib/x86_64-linux-gnu' :
+                  '/usr/lib'
 
     system <<-eof
-      cp -a /usr/local/lib/x86_64-linux-gnu/librabbitmq.so* #{path}/lib/
+      
       cp -a #{@hiredis_path}/lib/libhiredis.so* #{path}/lib/
+      cp #{@ioncube_path}/ioncube/ioncube_loader_lin_#{major_version}.so #{zts_path}/ioncube.so
+      cp -a #{@libmemcached_path}/lib/libmemcached.so* #{path}/lib/
       cp -a /usr/lib/libc-client.so* #{path}/lib/
       cp -a /usr/lib/libmcrypt.so* #{path}/lib
       cp -a #{lib_dir}/libaspell.so* #{path}/lib
       cp -a #{lib_dir}/libpspell.so* #{path}/lib
-      cp -a #{@libmemcached_path}/lib/libmemcached.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/libgearman.so* #{path}/lib
       cp -a /usr/local/lib/x86_64-linux-gnu/libcassandra.so* #{path}/lib
       cp -a /usr/local/lib/libuv.so* #{path}/lib
-      cp -a #{argon_dir}/libargon2.so* #{path}/lib
+      cp -a /usr/local/lib/x86_64-linux-gnu/librabbitmq.so* #{path}/lib/
+      cp -a /usr/lib/x86_64-linux-gnu/libsybdb.so* #{path}/lib/
       cp -a /usr/lib/librdkafka.so* #{path}/lib
-      cp -a /usr/lib/x86_64-linux-gnu/libzip.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libGeoIP.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libgpgme.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libassuan.so* #{path}/lib/
@@ -108,14 +120,7 @@ class Php7Recipe < BaseRecipe
       cp -a /usr/lib/x86_64-linux-gnu/libfbclient.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/librecode.so* #{path}/lib/
       cp -a /usr/lib/x86_64-linux-gnu/libtommath.so* #{path}/lib/
-      cp -a /usr/lib/x86_64-linux-gnu/libmaxminddb.so* #{path}/lib/
-    eof
 
-    if IonCubeRecipe.build_ioncube?(version)
-      system "cp #{@ioncube_path}/ioncube/ioncube_loader_lin_#{major_version}.so #{zts_path}/ioncube.so"
-    end
-
-    system <<-eof
       # Remove unused files
       rm "#{path}/etc/php-fpm.conf.default"
       rm -rf "#{path}/include"

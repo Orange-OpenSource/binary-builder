@@ -139,6 +139,15 @@ class LibmemcachedRecipe < BaseRecipe
     ENV['CXXFLAGS'] = '-fpermissive'
     execute('configure', %w(./configure) + computed_options)
   end
+
+# def patch
+#   system <<-eof
+#     cd #{work_path}
+#     sed -i '\\|include tests/include.am|d' Makefile.am
+#     aclocal
+#     automake --add-missing
+#   eof
+# end
 end
 
 # We need to compile from source until Ubuntu packages version 2.3.0+

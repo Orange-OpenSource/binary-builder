@@ -175,7 +175,15 @@ class HTTPdMeal
     apr_iconv_recipe.cook
     apr_util_recipe.cook
     httpd_recipe.cook
-    httpd_recipe.activate
+
+     # this symlink is needed so that modules can call `apxs`
+    #  putting it here because we only need to do it once
+    system <<-eof
+      cd /app
+      if ! [ -L "/app/httpd" ]; then
+        ln -s "#{httpd_recipe.path}" httpd
+      fi
+    eof
 
     # this symlink is needed so that modules can call `apxs`
     #  putting it here because we only need to do it once
@@ -190,6 +198,13 @@ class HTTPdMeal
     mod_auth_openidc_recipe.cook
     yajl_recipe.cook
     mod_security_recipe.cook
+
+
+    # if ENV['STACK'] == 'cflinuxfs3'
+    #   run('apt-get install -y libjansson-dev libcjose-dev libhiredis-dev') or raise 'Failed to install additional dependencies'
+    #   mod_auth_openidc_recipe.cook
+    # end
+
   end
 
   def url
@@ -236,6 +251,10 @@ class HTTPdMeal
       mod_security_recipe.send(:files_hashs) +
       mod_auth_openidc_recipe.send(:files_hashs)
 
+    # if ENV['STACK'] == 'cflinuxfs3'
+    #   hashes += mod_auth_openidc_recipe.send(:files_hashs)
+    # end
+
     hashes
   end
 
@@ -275,10 +294,10 @@ class HTTPdMeal
   end
 
   def mod_security_recipe
-    @mod_security_recipe ||= ModSecurityRecipe.new('mod_security', '2.9.2', apr_path: apr_recipe.path,
+    @mod_security_recipe ||= ModSecurityRecipe.new('mod_security', '2.9.3', apr_path: apr_recipe.path,
                                                                             apr_util_path: apr_util_recipe.path,
                                                                             yajl_path: yajl_recipe.path,
                                                                             httpd_path: httpd_recipe.path,
-                                                                            sha256: '41a8f73476ec891f3a9e8736b98b64ea5c2105f1ce15ea57a1f05b4bf2ffaeb5')
+                                                                            sha256: '4192019d169d3f1dd82cc4714db6986df54c6ceb4ee1c8f253de78d1a6b62118')
   end
 end

@@ -34,7 +34,10 @@ class PhpMeal
       apt-get update
       apt-get -y upgrade
       apt-get -y install #{apt_packages}
+      ln -s /usr/include/x86_64-linux-gnu/curl /usr/include/curl
+      ln -s /usr/lib/libc-client.a /usr/lib/x86_64-linux-gnu/libc-client.a
       #{install_libuv}
+      #{install_argon2}
       #{symlink_commands}
     eof
 
@@ -107,6 +110,8 @@ class PhpMeal
     php_extensions_hash = YAML.load_file(@options[:php_extensions_file])
 
     php_extensions_hash['extensions'].each do |hash|
+      next if ['sqlsrv', 'pdo_sqlsrv'].include?(hash['name']) && ENV['STACK'] != 'cflinuxfs3'
+
       klass = Kernel.const_get(hash['klass'])
 
       @extensions << klass.new(
@@ -142,6 +147,9 @@ class PhpMeal
     packages = php_common_apt_packages
     packages += php7_apt_packages
     packages += php7_cflinuxfs3_apt_packages
+    packages += libkrb5-dev
+    packages += libc-client2007e
+    packages += libc-client2007e-dev
     return packages.join(" ")
   end
 
@@ -195,6 +203,20 @@ class PhpMeal
     )
   end
 
+  def install_argon2
+    return '' if ENV['STACK'] == 'cflinuxfs3' || @major_version == '5' || (@major_version == '7' && @minor_version.to_i < 2)
+    %q((
+      cd /tmp
+      curl -L -O https://github.com/P-H-C/phc-winner-argon2/archive/20171227.tar.gz
+      tar zxf 20171227.tar.gz
+      cd phc-winner-argon2-20171227
+      make
+      make test
+      make install PREFIX=/usr/local
+      )
+    )
+  end
+
   def symlink_commands
     php7_symlinks.join("\n")
   end
@@ -220,6 +242,8 @@ class PhpMeal
        IonCubeRecipe.build_ioncube?(version)
     when 'oci8', 'pdo_oci'
        OraclePeclRecipe.oracle_sdk?
+    when 'maxmind', 'libmaxmind'
+       ENV['STACK'] == 'cflinuxfs3' ? true : false
     else
        true
     end
